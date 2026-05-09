@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lô Tô — Phân vùng lợi nhuận nhà cái</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 6px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .tab {
+      font-size: 13px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      border: 1px solid #ccc;
+      background: transparent;
+      color: #555;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .tab:hover  { background: #eee; }
+    .tab.active { background: #1a1a1a; color: #fff; border-color: transparent; }
+
+    /* ── Panels ── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Metric cards ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 1.25rem;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 12px 16px;
+    }
+    .card-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+    .card-val   { font-size: 24px; font-weight: 500; }
+    .green { color: #1D9E75; }
+    .amber { color: #BA7517; }
+    .red   { color: #D85A30; }
+
+    /* ── Filter row ── */
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .filter-row label { font-size: 13px; color: #555; }
+    .filter-row select {
+      font-size: 13px;
+      padding: 5px 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #fff;
+      color: #1a1a1a;
+      cursor: pointer;
+    }
+
+    /* ── Legend ── */
+    .legend { display: flex; gap: 20px; font-size: 12px; color: #666; margin-bottom: 10px; flex-wrap: wrap; }
+    .leg-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+    /* ── Info box ── */
+    #info-box {
+      font-size: 13px;
+      color: #555;
+      min-height: 20px;
+      margin-bottom: 6px;
+      padding: 6px 10px;
+      background: #f0f0ea;
+      border-radius: 6px;
+    }
+
+    /* ── Chart wrappers ── */
+    .chart-wrap { position: relative; width: 100%; height: 340px; }
+
+    /* ── CSV panel ── */
+    .section-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 8px;
+    }
+    .paste-area {
+      width: 100%;
+      height: 130px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fafaf8;
+      color: #1a1a1a;
+      resize: vertical;
+      margin-bottom: 8px;
+    }
+    .paste-area:focus { outline: none; border-color: #888; }
+    .btn-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .btn {
+      padding: 7px 18px;
+      font-size: 13px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #fff;
+      color: #1a1a1a;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn:hover { background: #f0f0ea; }
+    .btn-primary { background: #1a1a1a; color: #fff; border-color: transparent; }
+    .btn-primary:hover { background: #333; }
+    #csv-msg { font-size: 13px; color: #666; }
+
+    /* ── Hint box ── */
+    .hint {
+      margin-top: 1.5rem;
+      padding: 12px 16px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-left: 3px solid #1D9E75;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #444;
+      line-height: 1.6;
+    }
+    .hint code {
+      background: #f0f0ea;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    /* ── Footer ── */
+    footer { margin-top: 2.5rem; font-size: 12px; color: #aaa; text-align: center; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Lô Tô — Phân vùng lợi nhuận nhà cái</h1>
+  <p class="subtitle">Thống kê theo hệ số thưởng b, % giảm x, khoảng giảm k</p>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('chart')">Biểu đồ vùng</button>
+    <button class="tab" onclick="switchTab('profit')">Lợi nhuận vs b</button>
+    <button class="tab" onclick="switchTab('data')">Nhập dữ liệu CSV</button>
+  </div>
+
+  <!-- Panel 1: Scatter -->
+  <div class="panel active" id="panel-chart">
+    <p class="section-title">Phân vùng lời / trung gian / lỗ theo b và x</p>
+    <div class="cards">
+      <div class="card"><div class="card-label">Tổ hợp luôn lời</div><div class="card-val green" id="cnt-loi">–</div></div>
+      <div class="card"><div class="card-label">Tổ hợp trung gian</div><div class="card-val amber" id="cnt-tg">–</div></div>
+      <div class="card"><div class="card-label">Tổ hợp luôn lỗ</div><div class="card-val red" id="cnt-lo">–</div></div>
+    </div>
+    <div class="filter-row">
+      <label>Lọc theo k:</label>
+      <select id="k-filter" onchange="redrawScatter()"><option value="all">Tất cả</option></select>
+      <label>Trục Y:</label>
+      <select id="y-axis" onchange="redrawScatter()">
+        <option value="profitRate">Tỉ suất lợi nhuận %</option>
+        <option value="lossRate">% ván nhà cái lỗ</option>
+        <option value="minProfit">Lợi nhuận thấp nhất (đ)</option>
+      </select>
+    </div>
+    <div id="info-box">Di chuyển chuột lên điểm để xem chi tiết</div>
+    <div class="legend">
+      <span><span class="leg-dot" style="background:#1D9E75"></span>Luôn lời (minProfit &gt; 0)</span>
+      <span><span class="leg-dot" style="background:#BA7517"></span>Trung gian</span>
+      <span><span class="leg-dot" style="background:#D85A30"></span>Luôn lỗ (maxProfit &lt; 0)</span>
+    </div>
+    <div class="chart-wrap"><canvas id="scatterChart" role="img" aria-label="Scatter plot phân vùng lợi nhuận">Dữ liệu chưa tải.</canvas></div>
+  </div>
+
+  <!-- Panel 2: Line -->
+  <div class="panel" id="panel-profit">
+    <p class="section-title">Tỉ suất lợi nhuận trung bình theo b (mỗi đường = 1 giá trị x)</p>
+    <div class="filter-row">
+      <label>Lọc theo k:</label>
+      <select id="k-filter2" onchange="redrawLine()"><option value="all">Tất cả</option></select>
+    </div>
+    <div class="chart-wrap"><canvas id="lineChart" role="img" aria-label="Line chart lợi nhuận theo b">Dữ liệu chưa tải.</canvas></div>
+    <p style="margin-top:10px;font-size:13px;color:#666;">Đường cắt trục 0% = điểm hoà vốn. Bên trái = nhà cái lỗ, bên phải = nhà cái lời.</p>
+  </div>
+
+  <!-- Panel 3: Data -->
+  <div class="panel" id="panel-data">
+    <p class="section-title">Dán nội dung file CSV từ chương trình C++</p>
+    <p style="font-size:13px;color:#666;margin-bottom:10px;">
+      Header cần có: <code>b,x,k,avgProfit,minProfit,maxProfit,profitRate,lossRate,zone</code>
+    </p>
+    <textarea class="paste-area" id="csv-input"
+      placeholder="Dán nội dung grid_result.csv vào đây...&#10;&#10;Ví dụ:&#10;b,x,k,avgProfit,minProfit,maxProfit,profitRate,lossRate,zone&#10;0.3,1.0,5,28941,28238,29469,72.35,0.0,LUON LOI&#10;..."></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="loadCSV()">Tải dữ liệu</button>
+      <button class="btn" onclick="loadSample()">Dùng dữ liệu mẫu</button>
+    </div>
+    <p id="csv-msg"></p>
+
+    <div class="hint">
+      <strong>Cách lấy dữ liệu thực từ C++:</strong><br>
+      1. Chạy <code>./loto.exe</code> → chọn chế độ <code>2 (Grid Search)</code><br>
+      2. Nhập dải b, x, k theo yêu cầu → nhập tên file output (VD: <code>grid_result.csv</code>)<br>
+      3. Mở <code>grid_result.csv</code> bằng Notepad → Chọn tất cả → Copy → Dán vào ô trên<br>
+      4. Nhấn <strong>Tải dữ liệu</strong> để vẽ biểu đồ từ kết quả thực
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<footer>Mini Project Lô Tô OOP C++ — Visualizer</footer>
+
+<script>
+// ── State ──────────────────────────────────────────
+let allData = [];
+let scatterInst = null, lineInst = null;
+
+const ZONE_COLOR    = { 'LUON LOI':'#1D9E75', 'TRUNG GIAN':'#BA7517', 'LUON LO':'#D85A30' };
+const ZONE_COLOR_BG = { 'LUON LOI':'rgba(29,158,117,.18)', 'TRUNG GIAN':'rgba(186,117,23,.18)', 'LUON LO':'rgba(216,90,48,.18)' };
+const LINE_PALETTE  = ['#1D9E75','#178BCA','#BA7517','#D85A30','#7F77DD','#5F5E5A','#639922','#D4537E','#0F6E56','#53338B'];
+
+// ── Tabs ───────────────────────────────────────────
+function switchTab(t) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + t).classList.add('active');
+  document.querySelectorAll('.tab')[['chart','profit','data'].indexOf(t)].classList.add('active');
+  if (t === 'profit') redrawLine();
+}
+
+// ── CSV parse ──────────────────────────────────────
+function parseCSV(txt) {
+  const lines = txt.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  const header = lines[0].split(',').map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const vals = line.split(',');
+    const obj = {};
+    header.forEach((h, i) => {
+      const v = (vals[i] || '').trim();
+      obj[h] = isNaN(v) || v === '' ? v : parseFloat(v);
+    });
+    return obj;
+  });
+}
+
+// ── Build k options ────────────────────────────────
+function buildKOptions(data) {
+  const ks = [...new Set(data.map(d => d.k))].sort((a,b) => a - b);
+  ['k-filter','k-filter2'].forEach(id => {
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = '<option value="all">Tất cả</option>';
+    ks.forEach(k => {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = 'k = ' + k;
+      sel.appendChild(o);
+    });
+    if ([...sel.options].some(o => o.value == prev)) sel.value = prev;
+  });
+}
+
+// ── Update stat cards ──────────────────────────────
+function updateCards(data) {
+  const loi = data.filter(d => d.zone === 'LUON LOI').length;
+  const tg  = data.filter(d => d.zone === 'TRUNG GIAN').length;
+  const lo  = data.filter(d => d.zone === 'LUON LO').length;
+  document.getElementById('cnt-loi').textContent = loi + ' / ' + data.length;
+  document.getElementById('cnt-tg').textContent  = tg  + ' / ' + data.length;
+  document.getElementById('cnt-lo').textContent  = lo  + ' / ' + data.length;
+}
+
+function getFiltered(id) {
+  const kv = document.getElementById(id).value;
+  return kv === 'all' ? allData : allData.filter(d => d.k == kv);
+}
+
+// ── Scatter chart ──────────────────────────────────
+function redrawScatter() {
+  const data = getFiltered('k-filter');
+  const yKey = document.getElementById('y-axis').value;
+  const yLabels = { profitRate:'Tỉ suất lợi nhuận %', lossRate:'% ván nhà cái lỗ', minProfit:'Lợi nhuận thấp nhất (đồng)' };
+
+  const datasets = ['LUON LOI','TRUNG GIAN','LUON LO'].map(zone => ({
+    label: zone,
+    data: data.filter(d => d.zone === zone).map(d => ({
+      x: +d.b.toFixed(2),
+      y: +d[yKey].toFixed(2),
+      raw: d
+    })),
+    backgroundColor: ZONE_COLOR_BG[zone],
+    borderColor:     ZONE_COLOR[zone],
+    borderWidth: 1.5,
+    pointRadius: 7,
+    pointHoverRadius: 10,
+    pointStyle: zone === 'LUON LOI' ? 'circle' : zone === 'TRUNG GIAN' ? 'triangle' : 'rectRot',
+  }));
+
+  const xs = data.map(d => d.b);
+  const xMin = Math.floor(Math.min(...xs) * 10) / 10 - 0.05;
+  const xMax = Math.ceil (Math.max(...xs) * 10) / 10 + 0.05;
+
+  if (scatterInst) scatterInst.destroy();
+  scatterInst = new Chart(document.getElementById('scatterChart'), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const r = ctx.raw.raw;
+              return [
+                `b=${r.b.toFixed(2)}, x=${(+r.x).toFixed(1)}%, k=${r.k}`,
+                `Tỉ suất lợi nhuận: ${r.profitRate.toFixed(1)}%`,
+                `Min lợi nhuận: ${Math.round(r.minProfit).toLocaleString('vi-VN')}đ`,
+                `% ván lỗ: ${r.lossRate.toFixed(1)}%`,
+                `→ ${r.zone}`
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Hệ số thưởng b' },
+          min: xMin, max: xMax,
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        },
+        y: {
+          title: { display: true, text: yLabels[yKey] },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        }
+      },
+      onHover: (e, elements) => {
+        const box = document.getElementById('info-box');
+        if (elements.length > 0) {
+          const r = elements[0].element.$context.raw.raw;
+          box.innerHTML = `<strong>b=${r.b.toFixed(2)}, x=${(+r.x).toFixed(1)}%, k=${r.k}</strong> &nbsp;|&nbsp; ${r.zone} &nbsp;|&nbsp; Lợi nhuận TB: <strong>${r.profitRate.toFixed(1)}%</strong>`;
+        } else {
+          box.textContent = 'Di chuyển chuột lên điểm để xem chi tiết';
+        }
+      }
+    }
+  });
+}
+
+// ── Line chart ─────────────────────────────────────
+function redrawLine() {
+  const data = getFiltered('k-filter2');
+  const xs = [...new Set(data.map(d => +d.x.toFixed(1)))].sort((a,b) => a - b);
+  const bs = [...new Set(data.map(d => +d.b.toFixed(2)))].sort((a,b) => a - b);
+
+  const datasets = xs.map((x, i) => {
+    const pts = bs.map(b => {
+      const rows = data.filter(d => +d.b.toFixed(2) === b && +d.x.toFixed(1) === x);
+      if (!rows.length) return null;
+      const avg = rows.reduce((s,r) => s + r.profitRate, 0) / rows.length;
+      return { x: b, y: +avg.toFixed(2) };
+    }).filter(Boolean);
+    return {
+      label: `x = ${x}%`,
+      data: pts,
+      borderColor: LINE_PALETTE[i % LINE_PALETTE.length],
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 3,
+      tension: 0.3,
+    };
+  });
+
+  // Thêm đường y=0 làm mốc hoà vốn
+  const bMin = Math.min(...bs), bMax = Math.max(...bs);
+  datasets.push({
+    label: 'Hoà vốn (0%)',
+    data: [{ x: bMin, y: 0 }, { x: bMax, y: 0 }],
+    borderColor: '#aaa',
+    borderDash: [6, 4],
+    borderWidth: 1,
+    pointRadius: 0,
+    backgroundColor: 'transparent',
+  });
+
+  if (lineInst) lineInst.destroy();
+  lineInst = new Chart(document.getElementById('lineChart'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 10, font: { size: 11 } } }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Hệ số thưởng b' },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        },
+        y: {
+          title: { display: true, text: 'Tỉ suất lợi nhuận %' },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        }
+      }
+    }
+  });
+}
+
+// ── Load CSV từ textarea ───────────────────────────
+function loadCSV() {
+  const txt = document.getElementById('csv-input').value.trim();
+  if (!txt) {
+    document.getElementById('csv-msg').textContent = 'Vui lòng dán dữ liệu CSV vào ô trên.';
+    return;
+  }
+  try {
+    const data = parseCSV(txt);
+    if (!data.length || !('b' in data[0])) throw new Error('Không tìm thấy cột b, x, k...');
+    loadData(data);
+    switchTab('chart');
+    document.getElementById('csv-msg').textContent = `Đã tải ${data.length} tổ hợp thành công.`;
+  } catch(e) {
+    document.getElementById('csv-msg').textContent = 'Lỗi đọc CSV: ' + e.message;
+  }
+}
+
+// ── Load dữ liệu mẫu ──────────────────────────────
+function loadSample() {
+  const rows = [];
+  [0.3,0.4,0.5,0.6,0.7,0.75,0.8,0.85,0.9,0.95,1.0,1.1,1.2].forEach(b => {
+    [1,3,5,8,10,15].forEach(x => {
+      [5,10,15].forEach(k => {
+        const decayPow = 42 / k;  // drawCount trung bình ~42
+        const decay = Math.pow(1 - x/100, decayPow);
+        const pr = (1 - b * decay) * 100 + (Math.random()-0.5)*3;
+        const minP = pr - Math.abs(Math.random()*6 + 1);
+        const maxP = pr + Math.abs(Math.random()*6 + 1);
+        const zone = minP > 0 ? 'LUON LOI' : (maxP < 0 ? 'LUON LO' : 'TRUNG GIAN');
+        rows.push({
+          b, x, k,
+          avgProfit: pr * 400,
+          minProfit: minP * 400,
+          maxProfit: maxP * 400,
+          profitRate: +pr.toFixed(2),
+          lossRate: Math.max(0, +(-pr * 1.5).toFixed(2)),
+          zone
+        });
+      });
+    });
+  });
+  loadData(rows);
+  document.getElementById('csv-msg').textContent =
+    `Đang hiển thị ${rows.length} tổ hợp mẫu. Chạy C++ để lấy dữ liệu thực.`;
+  switchTab('chart');
+}
+
+// ── Load data vào state ────────────────────────────
+function loadData(data) {
+  allData = data;
+  buildKOptions(data);
+  updateCards(data);
+  redrawScatter();
+}
+
+// ── Khởi động với dữ liệu mẫu ─────────────────────
+loadSample();
+</script>
+</body>
+</html>

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Lô Tô — Biểu đồ thống kê</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+         background:#f4f4f0;color:#1a1a1a;padding:1.5rem 1rem;min-height:100vh}
+    .container{max-width:1000px;margin:0 auto}
+    h1{font-size:21px;font-weight:600;margin-bottom:4px}
+    .sub{font-size:13px;color:#777;margin-bottom:1.4rem}
+
+    /* Tabs */
+    .tabs{display:flex;gap:6px;margin-bottom:1.2rem;flex-wrap:wrap}
+    .tab{font-size:13px;padding:6px 16px;border-radius:999px;
+         border:1px solid #ccc;background:#fff;color:#555;cursor:pointer}
+    .tab.active{background:#1a1a1a;color:#fff;border-color:transparent}
+    .panel{display:none}.panel.active{display:block}
+
+    /* Upload box */
+    .upload-box{border:2px dashed #ccc;border-radius:12px;padding:28px;
+                text-align:center;cursor:pointer;background:#fff;
+                transition:border-color .2s;margin-bottom:1rem}
+    .upload-box:hover,.upload-box.drag{border-color:#1a1a1a}
+    .upload-box p{font-size:14px;color:#555;margin-bottom:6px}
+    .upload-box small{font-size:12px;color:#aaa}
+    .file-input{display:none}
+
+    /* Status */
+    .status{font-size:13px;padding:8px 12px;border-radius:8px;
+            margin-bottom:1rem;display:none}
+    .status.ok {background:#e6f4f0;color:#1D9E75;display:block}
+    .status.err{background:#fdecea;color:#c0392b;display:block}
+
+    /* Cards */
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.2rem}
+    .card{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px 14px}
+    .card-label{font-size:12px;color:#888;margin-bottom:3px}
+    .card-val{font-size:22px;font-weight:600}
+    .green{color:#1D9E75}.red{color:#D85A30}.blue{color:#178BCA}
+
+    /* Chart */
+    .chart-box{background:#fff;border:1px solid #e0e0e0;border-radius:12px;
+               padding:14px;margin-bottom:1rem}
+    .chart-box h3{font-size:14px;font-weight:500;color:#555;margin-bottom:12px}
+    .chart-wrap{position:relative;width:100%;height:340px}
+    .chart-wrap-sm{height:260px}
+
+    /* Controls */
+    .ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .ctrl label{font-size:13px;color:#555}
+    .ctrl select{font-size:13px;padding:5px 9px;border:1px solid #ccc;
+                 border-radius:8px;background:#fff;cursor:pointer}
+
+    /* Paste fallback */
+    .paste-area{width:100%;height:100px;font-size:12px;font-family:'Courier New',monospace;
+                border:1px solid #ccc;border-radius:8px;padding:9px;
+                background:#fafaf8;resize:vertical;margin-bottom:8px;color:#1a1a1a}
+    .paste-area:focus{outline:none;border-color:#888}
+    .btn-row{display:flex;gap:8px;margin-bottom:6px}
+    .btn{padding:7px 15px;font-size:13px;border:1px solid #ccc;border-radius:8px;
+         background:#fff;cursor:pointer}
+    .btn:hover{background:#f0f0ea}
+    .btn-p{background:#1a1a1a;color:#fff;border-color:transparent}
+    .btn-p:hover{background:#333}
+
+    .hint{background:#fff;border:1px solid #e0e0e0;border-left:3px solid #1D9E75;
+          border-radius:8px;padding:12px 14px;font-size:13px;color:#444;
+          line-height:1.7;margin-top:1rem}
+    .hint code{background:#f0f0ea;padding:1px 5px;border-radius:4px;
+               font-family:'Courier New',monospace;font-size:12px}
+    footer{margin-top:2rem;font-size:12px;color:#bbb;text-align:center}
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Lô Tô — Biểu đồ thống kê</h1>
+  <p class="sub">Kéo thả hoặc chọn file CSV xuất từ chương trình C++</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="sw('freq')">📊 Tần suất số</button>
+    <button class="tab"        onclick="sw('profit')">💰 Lời / Lỗ nhà cái</button>
+  </div>
+
+  <!-- ══ PANEL TẦN SUẤT ══ -->
+  <div class="panel active" id="panel-freq">
+
+    <!-- Upload -->
+    <div class="upload-box" id="drop-freq"
+         ondragover="drag(event,'freq')" ondragleave="undrag('freq')"
+         ondrop="drop(event,'freq')" onclick="document.getElementById('file-freq').click()">
+      <p>📂 Kéo thả <strong>so_xuat_hien.csv</strong> vào đây</p>
+      <small>hoặc click để chọn file · Format: <code>so,soLanXuatHien</code></small>
+    </div>
+    <input type="file" id="file-freq" class="file-input" accept=".csv"
+           onchange="readFile(this,'freq')">
+    <div id="status-freq" class="status"></div>
+
+    <!-- Paste fallback -->
+    <details style="margin-bottom:1rem">
+      <summary style="font-size:13px;color:#777;cursor:pointer">
+        Hoặc dán nội dung CSV thủ công ▸
+      </summary>
+      <div style="margin-top:8px">
+        <textarea class="paste-area" id="paste-freq"
+          placeholder="so,soLanXuatHien&#10;1,1443&#10;2,1415&#10;..."></textarea>
+        <div class="btn-row">
+          <button class="btn btn-p" onclick="parseText(document.getElementById('paste-freq').value,'freq')">
+            Tải dữ liệu
+          </button>
+          <button class="btn" onclick="loadSampleFreq()">Dùng mẫu</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- Cards -->
+    <div class="cards">
+      <div class="card"><div class="card-label">Tổng lần bốc ghi nhận</div>
+        <div class="card-val blue"  id="f-total">–</div></div>
+      <div class="card"><div class="card-label">Số xuất hiện nhiều nhất</div>
+        <div class="card-val green" id="f-top">–</div></div>
+      <div class="card"><div class="card-label">Số xuất hiện ít nhất</div>
+        <div class="card-val red"   id="f-bot">–</div></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl">
+      <label>Hiển thị:</label>
+      <select id="f-mode" onchange="drawFreq()">
+        <option value="all">Tất cả 99 số (sắp theo thứ tự)</option>
+        <option value="top20">Top 20 nhiều nhất</option>
+        <option value="bot20">Top 20 ít nhất</option>
+        <option value="desc">Tất cả (sắp theo tần suất ↓)</option>
+      </select>
+    </div>
+
+    <div class="chart-box">
+      <h3>Số lần xuất hiện của từng số (1–99)</h3>
+      <div class="chart-wrap"><canvas id="freq-chart"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Top 15 số xuất hiện nhiều nhất vs ít nhất</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><div class="chart-wrap chart-wrap-sm"><canvas id="top-chart"></canvas></div></div>
+        <div><div class="chart-wrap chart-wrap-sm"><canvas id="bot-chart"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PANEL LỢI NHUẬN ══ -->
+  <div class="panel" id="panel-profit">
+
+    <!-- Upload -->
+    <div class="upload-box" id="drop-profit"
+         ondragover="drag(event,'profit')" ondragleave="undrag('profit')"
+         ondrop="drop(event,'profit')" onclick="document.getElementById('file-profit').click()">
+      <p>📂 Kéo thả <strong>loi_nhuan.csv</strong> vào đây</p>
+      <small>hoặc click để chọn file · Format: <code>van,loiNhuan</code></small>
+    </div>
+    <input type="file" id="file-profit" class="file-input" accept=".csv"
+           onchange="readFile(this,'profit')">
+    <div id="status-profit" class="status"></div>
+
+    <!-- Paste fallback -->
+    <details style="margin-bottom:1rem">
+      <summary style="font-size:13px;color:#777;cursor:pointer">
+        Hoặc dán nội dung CSV thủ công ▸
+      </summary>
+      <div style="margin-top:8px">
+        <textarea class="paste-area" id="paste-profit"
+          placeholder="van,loiNhuan&#10;1,17194&#10;2,18334&#10;..."></textarea>
+        <div class="btn-row">
+          <button class="btn btn-p" onclick="parseText(document.getElementById('paste-profit').value,'profit')">
+            Tải dữ liệu
+          </button>
+          <button class="btn" onclick="loadSampleProfit()">Dùng mẫu</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- Cards -->
+    <div class="cards">
+      <div class="card"><div class="card-label">Tổng ván mô phỏng</div>
+        <div class="card-val blue"  id="p-total">–</div></div>
+      <div class="card"><div class="card-label">Lợi nhuận trung bình/ván</div>
+        <div class="card-val green" id="p-avg">–</div></div>
+      <div class="card"><div class="card-label">Ván lỗ nhiều nhất</div>
+        <div class="card-val red"   id="p-min">–</div></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl">
+      <label>Hiển thị:</label>
+      <select id="p-mode" onchange="drawProfit()">
+        <option value="line">Đường lợi nhuận từng ván</option>
+        <option value="cumul">Lợi nhuận tích lũy</option>
+        <option value="hist">Phân phối lợi nhuận (histogram)</option>
+      </select>
+      <label style="margin-left:8px">Làm mượt:</label>
+      <select id="p-smooth" onchange="drawProfit()">
+        <option value="1">Không làm mượt</option>
+        <option value="50">Trung bình 50 ván</option>
+        <option value="100" selected>Trung bình 100 ván</option>
+        <option value="200">Trung bình 200 ván</option>
+      </select>
+    </div>
+
+    <div class="chart-box">
+      <h3 id="p-title">Lợi nhuận nhà cái theo từng ván</h3>
+      <div class="chart-wrap"><canvas id="profit-chart"></canvas></div>
+    </div>
+
+    <div class="hint">
+      <strong>Đọc biểu đồ lời/lỗ:</strong><br>
+      • Đường <span style="color:#1D9E75">xanh</span> = ván nhà cái <strong>lời</strong> (lợi nhuận &gt; 0)<br>
+      • Đường <span style="color:#D85A30">đỏ</span> = ván nhà cái <strong>lỗ</strong> (lợi nhuận &lt; 0)<br>
+      • Chọn <em>"Trung bình N ván"</em> để thấy xu hướng rõ hơn<br>
+      • Chọn <em>"Lợi nhuận tích lũy"</em> để thấy tổng lời/lỗ sau nhiều ván
+    </div>
+  </div>
+</div>
+<footer>Mini Project Lô Tô OOP C++ — Visualizer</footer>
+
+<script>
+// ── State ──────────────────────────────────
+let freqData   = [];  // [{so, soLanXuatHien}]
+let profitData = [];  // [{van, loiNhuan}]
+let freqInst = null, topInst = null, botInst = null, profitInst = null;
+
+// ── Tab switch ──────────────────────────────
+function sw(t) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + t).classList.add('active');
+  document.querySelectorAll('.tab')[['freq','profit'].indexOf(t)].classList.add('active');
+  if (t === 'profit' && profitData.length) drawProfit();
+}
+
+// ── Drag & drop ────────────────────────────
+function drag(e, id)  { e.preventDefault(); document.getElementById('drop-'+id).classList.add('drag'); }
+function undrag(id)   { document.getElementById('drop-'+id).classList.remove('drag'); }
+function drop(e, id)  { e.preventDefault(); undrag(id); readFile({files: e.dataTransfer.files}, id); }
+
+// ── Đọc file ──────────────────────────────
+function readFile(input, id) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => parseText(e.target.result, id);
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── Parse CSV text ─────────────────────────
+function parseText(txt, id) {
+  txt = txt.trim();
+  if (!txt) return showStatus(id, 'Không có dữ liệu.', false);
+
+  try {
+    const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+    const hdr   = lines[0].split(',').map(h => h.trim());
+    const rows  = lines.slice(1).map(l => {
+      const v = l.split(',');
+      const o = {};
+      hdr.forEach((h, i) => { o[h] = parseFloat((v[i]||'').trim()); });
+      return o;
+    }).filter(r => !isNaN(Object.values(r)[0]));
+
+    if (id === 'freq') {
+      // Cột bắt buộc: so, soLanXuatHien
+      if (!('so' in rows[0]) || !('soLanXuatHien' in rows[0]))
+        throw new Error('Thiếu cột "so" hoặc "soLanXuatHien"');
+      freqData = rows;
+      updateFreqCards();
+      drawFreq();
+      drawTopBot();
+      showStatus('freq', `Đã tải ${rows.length} số thành công ✓`, true);
+    } else {
+      // Cột bắt buộc: van, loiNhuan
+      if (!('van' in rows[0]) || !('loiNhuan' in rows[0]))
+        throw new Error('Thiếu cột "van" hoặc "loiNhuan"');
+      profitData = rows;
+      updateProfitCards();
+      drawProfit();
+      showStatus('profit', `Đã tải ${rows.length} ván thành công ✓`, true);
+    }
+  } catch(e) {
+    showStatus(id, 'Lỗi đọc CSV: ' + e.message, false);
+  }
+}
+
+function showStatus(id, msg, ok) {
+  const el = document.getElementById('status-' + id);
+  el.textContent = msg;
+  el.className = 'status ' + (ok ? 'ok' : 'err');
+}
+
+// ── Freq cards ─────────────────────────────
+function updateFreqCards() {
+  const total = freqData.reduce((s,r) => s + r.soLanXuatHien, 0);
+  const sorted = [...freqData].sort((a,b) => b.soLanXuatHien - a.soLanXuatHien);
+  document.getElementById('f-total').textContent = total.toLocaleString('vi-VN');
+  document.getElementById('f-top').textContent   = `Số ${sorted[0].so} (${sorted[0].soLanXuatHien} lần)`;
+  document.getElementById('f-bot').textContent   = `Số ${sorted[sorted.length-1].so} (${sorted[sorted.length-1].soLanXuatHien} lần)`;
+}
+
+// ── Vẽ biểu đồ tần suất ───────────────────
+function drawFreq() {
+  const mode = document.getElementById('f-mode').value;
+  let d = [...freqData];
+
+  if      (mode === 'top20') d = [...d].sort((a,b)=>b.soLanXuatHien-a.soLanXuatHien).slice(0,20);
+  else if (mode === 'bot20') d = [...d].sort((a,b)=>a.soLanXuatHien-b.soLanXuatHien).slice(0,20).reverse();
+  else if (mode === 'desc')  d = [...d].sort((a,b)=>b.soLanXuatHien-a.soLanXuatHien);
+  else                       d = [...d].sort((a,b)=>a.so-b.so);
+
+  const maxVal = Math.max(...d.map(r=>r.soLanXuatHien));
+  const minVal = Math.min(...d.map(r=>r.soLanXuatHien));
+
+  const colors = d.map(r => {
+    if (r.soLanXuatHien === maxVal) return 'rgba(29,158,117,0.85)';  // xanh = nhiều nhất
+    if (r.soLanXuatHien === minVal) return 'rgba(216,90,48,0.85)';   // đỏ = ít nhất
+    return 'rgba(91,141,184,0.75)';                                    // xanh dương
+  });
+
+  if (freqInst) freqInst.destroy();
+  freqInst = new Chart(document.getElementById('freq-chart'), {
+    type: 'bar',
+    data: {
+      labels: d.map(r => 'Số ' + r.so),
+      datasets: [{
+        label: 'Số lần xuất hiện',
+        data:  d.map(r => r.soLanXuatHien),
+        backgroundColor: colors,
+        borderRadius: 3,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: ctx => `Xuất hiện: ${ctx.raw} lần`
+        }}
+      },
+      scales: {
+        x: { ticks: { maxRotation: 60, font: { size: 10 } }, grid: { display: false } },
+        y: { title: { display: true, text: 'Số lần xuất hiện' },
+             grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+}
+
+// ── Vẽ Top/Bot ────────────────────────────
+function drawTopBot() {
+  const N = 15;
+  const sorted = [...freqData].sort((a,b) => b.soLanXuatHien - a.soLanXuatHien);
+  const top = sorted.slice(0, N).reverse();
+  const bot = sorted.slice(-N);
+
+  const cfg = (data, color, id) => ({
+    type: 'bar',
+    data: {
+      labels: data.map(r => 'Số ' + r.so),
+      datasets: [{ data: data.map(r => r.soLanXuatHien),
+        backgroundColor: color, borderRadius: 3, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Số lần xuất hiện' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+        y: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  if (topInst) topInst.destroy();
+  if (botInst) botInst.destroy();
+  topInst = new Chart(document.getElementById('top-chart'), cfg(top, 'rgba(29,158,117,0.8)', 'top-chart'));
+  botInst = new Chart(document.getElementById('bot-chart'), cfg(bot, 'rgba(216,90,48,0.8)',  'bot-chart'));
+}
+
+// ── Profit cards ───────────────────────────
+function updateProfitCards() {
+  const vals = profitData.map(r => r.loiNhuan);
+  const avg  = vals.reduce((s,v)=>s+v,0) / vals.length;
+  const min  = Math.min(...vals);
+  document.getElementById('p-total').textContent = profitData.length.toLocaleString('vi-VN') + ' ván';
+  document.getElementById('p-avg').textContent   = Math.round(avg).toLocaleString('vi-VN') + ' đ';
+  document.getElementById('p-min').textContent   = Math.round(min).toLocaleString('vi-VN') + ' đ';
+}
+
+// ── Làm mượt (moving average) ─────────────
+function movingAvg(arr, w) {
+  if (w <= 1) return arr;
+  return arr.map((_, i) => {
+    const start = Math.max(0, i - w + 1);
+    const slice = arr.slice(start, i + 1);
+    return slice.reduce((s,v)=>s+v,0) / slice.length;
+  });
+}
+
+// ── Vẽ biểu đồ lợi nhuận ─────────────────
+function drawProfit() {
+  const mode   = document.getElementById('p-mode').value;
+  const smooth = parseInt(document.getElementById('p-smooth').value);
+  const titles = {
+    line:   'Lợi nhuận nhà cái theo từng ván',
+    cumul:  'Lợi nhuận tích lũy qua các ván',
+    hist:   'Phân phối lợi nhuận (histogram)'
+  };
+  document.getElementById('p-title').textContent = titles[mode];
+
+  const raw = profitData.map(r => r.loiNhuan);
+
+  if (profitInst) profitInst.destroy();
+
+  if (mode === 'hist') {
+    // Histogram
+    const min   = Math.min(...raw);
+    const max   = Math.max(...raw);
+    const bins  = 20;
+    const width = (max - min) / bins;
+    const counts = Array(bins).fill(0);
+    raw.forEach(v => {
+      let b = Math.floor((v - min) / width);
+      if (b >= bins) b = bins - 1;
+      counts[b]++;
+    });
+    const labels = counts.map((_,i) => Math.round(min + i*width).toLocaleString('vi-VN'));
+
+    profitInst = new Chart(document.getElementById('profit-chart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Số ván',
+          data: counts,
+          backgroundColor: counts.map((_,i) => {
+            const mid = min + (i + 0.5) * width;
+            return mid >= 0 ? 'rgba(29,158,117,0.8)' : 'rgba(216,90,48,0.8)';
+          }),
+          borderRadius: 2,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `${ctx.raw} ván` }} },
+        scales: {
+          x: { title: { display: true, text: 'Lợi nhuận (đồng)' }, ticks: { maxRotation: 45, font:{size:10} } },
+          y: { title: { display: true, text: 'Số ván' }, grid:{color:'rgba(0,0,0,0.05)'} }
+        }
+      }
+    });
+    return;
+  }
+
+  let vals;
+  if (mode === 'cumul') {
+    let cum = 0;
+    vals = raw.map(v => (cum += v));
+  } else {
+    vals = movingAvg(raw, smooth);
+  }
+
+  const labels = profitData.map(r => r.van);
+  const colors = vals.map(v => v >= 0 ? 'rgba(29,158,117,0.7)' : 'rgba(216,90,48,0.7)');
+
+  profitInst = new Chart(document.getElementById('profit-chart'), {
+    type: mode === 'cumul' ? 'line' : (raw.length > 500 ? 'line' : 'bar'),
+    data: {
+      labels,
+      datasets: [{
+        label: mode === 'cumul' ? 'Tổng tích lũy' : 'Lợi nhuận',
+        data: vals,
+        backgroundColor: mode === 'cumul' ? 'rgba(29,158,117,0.15)' : colors,
+        borderColor: mode === 'cumul' ? '#1D9E75' : colors,
+        borderWidth: mode === 'cumul' ? 2 : 1,
+        fill: mode === 'cumul',
+        pointRadius: 0,
+        tension: 0.3,
+      },
+      // Đường y=0
+      {
+        label: 'Hoà vốn',
+        data: labels.map(() => 0),
+        borderColor: '#ccc',
+        borderDash: [5,4],
+        borderWidth: 1,
+        pointRadius: 0,
+        backgroundColor: 'transparent',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: ctx => ctx.datasetIndex===0
+            ? `${ctx.dataset.label}: ${Math.round(ctx.raw).toLocaleString('vi-VN')} đ`
+            : null,
+          filter: item => item.datasetIndex === 0
+        }}
+      },
+      scales: {
+        x: { title:{display:true,text:'Ván'},
+             ticks:{maxTicksLimit:20,font:{size:10}},
+             grid:{display:false} },
+        y: { title:{display:true,text:'Lợi nhuận (đồng)'},
+             grid:{color:'rgba(0,0,0,0.05)'} }
+      }
+    }
+  });
+}
+
+// ── Dữ liệu mẫu ───────────────────────────
+function loadSampleFreq() {
+  const rows = [];
+  for (let so=1; so<=99; so++) {
+    const base = 2350 + Math.round((Math.random()-0.5)*300);
+    rows.push({ so, soLanXuatHien: base });
+  }
+  freqData = rows;
+  updateFreqCards();
+  drawFreq();
+  drawTopBot();
+  showStatus('freq', `Dữ liệu mẫu (${rows.length} số). Chạy C++ để lấy dữ liệu thực.`, true);
+}
+
+function loadSampleProfit() {
+  const rows = [];
+  for (let i=1; i<=5000; i++) {
+    const v = 15000 + Math.round((Math.random()-0.4)*8000);
+    rows.push({ van: i, loiNhuan: v });
+  }
+  profitData = rows;
+  updateProfitCards();
+  drawProfit();
+  showStatus('profit', `Dữ liệu mẫu (${rows.length} ván). Chạy C++ để lấy dữ liệu thực.`, true);
+}
+</script>
+</body>
+</html>
